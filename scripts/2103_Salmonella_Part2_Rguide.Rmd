@@ -1,0 +1,433 @@
+---
+title: "_Salmonella_ outbreak case study (Part 2: Logistic regression): R guide"
+author: "Authors: Ranya Mulchandani and Alicia Barrasa Blanco (UK-FETP)"
+date: "April 2021"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+## An outbreak of _Salmonella_ Typhimurium in the UK
+
+The scenario presented in this case study is based on an investigation of a cluster of Salmonella Typhimurium cases identified in the UK through the analysis of whole genome sequencing data in 2020. 
+
+The information presented in this case study and the associated data files have been deliberately changed to facilitate the acquisition of the learning objectives.
+
+The aim of this case study is to analyse the data collected as part of a foodborne outbreak investigation, using either Stata or R software. 
+The case study is formed of two parts. This exercise forms **PART TWO** of the two parts (it is expected that part one, the pre-module exercise, has already been completed) 
+
+### Learning outcomes 
+
+By the end of this exercise, participants should be able to:
+
+* Analyse data from a case-control study using logistic regression;
+* Understand the respective roles played by several exposures. 
+
+### Pre-requisites
+
+The expectation of participants using this R guide is a basic understanding of R. These include:
+
+* setting working directory
+* installing and loading packages
+* reading in a dataset
+* browsing your dataset
+* familiarity with tidyverse packages
+
+### This guide uses the "tidyverse way"
+
+This guide primarily uses code from the tidyverse packages (dplyr, ggplot2, readr) rather than base R. A quick reminder of the main verbs used in the dplyr package:
+
+* select() select variables by name
+* filter() return rows with matching conditions
+* mutate() add new variables
+* summarise() reduce multiple values down to a single value
+* group_by() group by one or more variables
+
+## Setting up R Studio - installing and loading packages
+
+The following code chunk will outline which packages will be used in this case study. 
+
+As always, there are multiple packages available that can do the same/similar analysis - the packages chosen in this case study are those familiar to the authors but are just one of multiple options available. When working through this case study, if you have alternative and/or easier approaches to conduct the same analysis, then please feel free to contribute to the continual improvement of this case study code by contacting one of the contributers listed above. 
+```{r one, message=FALSE, warning=FALSE, echo= FALSE}
+
+# set working directory 
+setwd("T:/FES/FS Information Team/Core Services/Outbreaks & Incidents/2020/202005 Salmonella T5.6145/Case study") 
+
+```
+
+```{r setup, message=FALSE, warning=FALSE}
+
+# load packages
+library(dplyr) # data manipulation
+library(readr) # read_csv function
+library(broom) # tidy function for model outputs
+library(epiDisplay) #lrtest function
+library(tidyr) # for pivot_wider function
+library(multcomp) #glht function
+library(gt) # for html tables
+
+# If you do not have any of the packages listed above, first use install.packages(), 
+# followed by a return to library(). All packages should be available via CRAN. 
+
+# read in dataset 
+data <- read_csv("salm_v1.4.csv")
+
+# create agegroup
+data <- data %>% 
+  mutate(agegrp = cut(age, breaks=c(0,35,45,55,65,Inf)))
+
+```
+
+## Reminder from part one of the case study....
+
+Univariate analysis results suggest that several food items were associated with illness, with consumption of Nut bar Brand A showing the strongest association. The associations could be real (e.g. multuple items being contaminated) or due to another variable that acts as a confounding factor. 
+
+Stratified analysis showed that Nut bar Brand A was confounding the effect of other food items, including chicken, cabbage, peanuts, hazelnuts, Nut bar Brand B, pecans and pistachios. In addition, there appears to be potential effect modifications between consumption of brazil nuts and Nut bar Brand A.
+
+Interpretation of the results should be done with caution due to the small number of cases involved in the stratified analysis.
+
+## Logistic regression: adjust for confounding
+
+### Question 1: How would you explore the effect of several risk factors?
+
+```{r question-one-analysis-plan, message=FALSE}
+# Proposed steps of analysis 
+
+#Step 1: Start by performing a logistic regrssion analysis with only one dichotomous exposure variable (ie. exposure = nut_bar_a, outcome = case), interpret the results and calculate the odds.
+
+#Step 2: Compare the outcome of the logistic regression when using age as a categorical variable or as a continuous one and interpret the outcomes 
+
+#Step 3: Add more variables to the model, discuss the meaning of the constant term for each one of the them
+
+#Step 4: Start again with a simple model (one independent variable) and add more variables in a step-by-step fashion
+
+#Step 5: Compare each nested model with the previous one (assessing the contribution of the new variable you add each time) by using likelihood ratio test
+
+#Step 6: Assess the fit of each model and try to identify the most parsimonious model
+```
+
+### Q1:Step 1: Logistic regression with only one dicohotomous variable
+
+A logistic regression follows the formula:
+
+![](Capture1.JPG)
+
+The "logit" link will give you the coefficients. You then need to convert the coefficients into ORs. 
+
+```{r step-one, message=FALSE}
+# run a model with only one dicohotomous variable ~ outcome
+model1 <- glm(case ~ nut_bar_a, data = data, family = binomial(link = "logit"))
+
+model1 # these are the coffecients 
+
+# summarise the outputs from the model (and calculates OR from the coefficients)
+tidy(model1, exponentiate = TRUE, conf.int = TRUE) 
+
+```
+
+This model corresponds to the equation:
+![](Capture2.JPG)
+
+The (Intercept) in the regression output corresponds to exponentiated log odds in the unexposed, which in cohort studies can be interpreted as the odds of being a case among the unexposed; in case control studies the interpretation is meaningless. Note that even if this (Intercept) is shown in the OR column, it is not an OR. This odds needs to be multiplied with the correct odds ratios for each exposure group to produce the odds of being a case for each exposure combination.
+
+The OR=19.98 corresponds to exponentiated log of the OR for the exposure in the equation above: The odds of being a case among those that consumed Nut bar A is almost 20 times higher (95% CI: 6.03-79.9) that among those that didn't.
+
+### Q1:Step 2: Logistic regression with age
+
+Now we want to run the model using age firstly as a categorical variable and then as a continous variable. The lowest value of agegrp is automatically set as a reference category.
+
+```{r step-two1, message=FALSE}
+# run model using age as categorical variable
+model2 <- glm(case ~ agegrp, data = data, family = binomial(link = "logit")) 
+
+tidy(model2, exponentiate = TRUE, conf.int = TRUE) # summarise the outputs from the model
+
+```
+
+```{r step-two2, message=FALSE}
+# run model using age as continous variable
+model2 <- glm(case ~ age, data = data, family = binomial(link = "logit")) 
+
+tidy(model2, exponentiate = TRUE, conf.int = TRUE) # summarise the outputs from the model
+
+```
+
+Though age does not appear to be associated with the outcome, the coefficient 1.033 represents the increase in the OR with one unit increase in age. What would be the OR for a 10-unit increase in age?
+
+### Q1:Step 3: Adding a second variable to the model
+
+Coming back to the model with Nut bar Brand A as the only exposure, let's add now Nut bar Brand B. From the stratified analysis you know that the effect of Nut bar Brand B was confounded by Nut bar Brand A. Can you see that in the model?
+
+```{r step-three, message=FALSE}
+# add in a second variable
+model3 <- glm(case ~ nut_bar_a + nut_bar_b, data = data, family = binomial(link = "logit"))
+
+# summarise the outputs from the model (and calculates OR from coefficients)
+tidy(model3, exponentiate = TRUE, conf.int = TRUE) 
+
+```
+
+![](Capture3.JPG)
+
+(Intercept) is the odds of illness among the unexposed i.e. among those who consumed neither Nut bar Brand A or Nut bar Brand B. 
+
+OR=15.51 is the OR for Nut bar Brand A adjusted for Nut bar Brand B. The odds of illness among those who consumed Nut bar Brand A but did not consume Nut bar Brand B is 15.5 (95% CI 4.41-63.94) times higher compared to those who consumed neither Nut bar Brand A or B.
+
+OR=6.058 is the OR for Nut bar Brand B adjusted for Nut bar Brand A. The odds of illness among those who consumed Nut bar Brand B but did not consume Nut bar Brand A is 6.06 (95% CI 0.82-53.96) - however this finding is not statistically significant (p=0.079).
+
+### Q1:Step 4: Adding a third variable into the model
+
+```{r step-four, message=FALSE}
+# add in a second variable
+model4 <- glm(case ~ nut_bar_a + nut_bar_b + brazil, data = data, family = binomial(link = "logit"))
+
+# summarise the outputs from the model (and calculates OR from coefficients)
+tidy(model4, exponentiate = TRUE, conf.int = TRUE) 
+
+```
+
+Think about how you would interpret the coefficients from this model.
+
+### Q1:Step 5: Adding a variables in a step-by-step fashion (using LRT to compare different models)
+
+Variables to be included in a multivariable regression model are selected on the basis of the results of the crude analysis and stratified analyses. Variables showing an association with the outcome and having a p-value less than 0.2 are often considered eligible.. The cut-off should be chosen depending on the specific situation (it should be pre-defined in your analysis protocol before you start the analysis). . Often it is between 0.25 and 0.1 but higher p-values can sometimes be justified. However, if you have any reason to believe a specific variable (exposure) should be in the model (i.e. because it might be a confounder or is a primary hypothesis), you should include it in the model anyway. There is no golden rule in the final inclusion of variables in a multivariable analysis model, especially in outbreak investigations.
+
+To be able to statistically check if the inclusion of a variable improves the model, the models need to have the same number of observations. If any variable had missing values this means that these will have different number of observations, so you need to drop all the missings.
+
+To include variable in the model here are two possible strategies: 
+
+* to start off with a model that includes only one independent variable and add others one by one (sometimes referred to as a "forwards stepwise approach")
+
+* to start with a full model (including all eligible variables) and, one at a time, remove variables that do not seem relevant (sometimes referred to as a "backwards stepwise approach"). 
+
+We will begin with only one independent variable.
+
+```{r step-five, message=FALSE}
+
+model1 <- glm(case ~ nut_bar_a, data = data, family = binomial(link = "logit"))
+
+model3 <- glm(case ~ nut_bar_a + nut_bar_b, data = data, family = binomial(link = "logit"))
+
+lrtest(model1, model3) # the likelihood ratio test (LRT) helps identify whether the addition of variables contribute signifiantly to the model. 
+
+```
+
+If the LRT is statistically significant, this suggests that the addition of the new variable in the model significantly improves the fit of this model. The results of the LRT (p=0.078) suggest a borderline significance (at the 0.05 level) for the addition of the variable nut_bar_b. Remember, this might be a confounder, so this may be a sufficient reason to keep it in the model regardless of it's p-value in the LRT. 
+
+Now proceed with other variables. Keep or drop variables as needed. Take the results from the LRT, p-values, magnitude change in OR, and proportion of cases exposed in account in order to decide. 
+
+
+### Q1:Step 6: Assessing the fit of each model, try to identify the most parsimonious model
+
+```{r step-six, message=FALSE}
+
+AIC(model1, model3)
+
+```
+
+You can now add more variables to the model and compare the different AIC; the model with the lowest AIC value will be the most parsimonious. 
+
+## Logistic regression: including interactions 
+
+Remember that your stratified analysis showed that the effect of brazil nuts was not the same depending on whether Nut bar Brand A was present or not, meaning that the ORs significantly differ between the two strata and effect modification may be present. 
+
+### Question 2: How would you account for effect modification?
+
+```{r question-two-analysis-plan}
+# Proposed steps of analysis 
+
+# Step 1: Perform stratified analysis using logistic regression to check for interactions
+
+# Step 2: Add an interaction term in the model
+
+# Step 3: Check whether the interaction improves the fit of the model
+```
+
+### Q2:Step 1: Perform stratified analysis on brazil nuts & nut bar A
+
+```{r q2-step-one, message=FALSE, warning=FALSE}
+
+# remember the stratified analysis you did in part one of the case study 
+epiDisplay::mhor(data$case, data$brazil, data$nut_bar_a, graph = F) # effect modifier
+
+# now lets use logistic regression - you will see you get the same (or at least v. similar!) coefficients 
+
+# without nut bar A
+model5 <- glm(case ~ brazil, data = data %>% filter(nut_bar_a == 0), family = binomial(link = "logit"))
+
+tidy(model5, exponentiate = TRUE, conf.int = TRUE) 
+
+# with nut bar A
+model6 <- glm(case ~ brazil, data = data %>% filter(nut_bar_a == 1), family = binomial(link = "logit")) 
+
+tidy(model6, exponentiate = TRUE, conf.int = TRUE) 
+
+```
+
+### Q2:Step 2: Add interaction term in the model
+
+```{r q2-step-two, message=FALSE, warning=FALSE}
+# add an interaction into the model 
+model7 <- glm(case ~ brazil*nut_bar_a, data = data, family = binomial(link = "logit"))
+
+tidy(model7, exponentiate = TRUE, conf.int = TRUE)
+
+```
+
+* The coefficient that accompanies the interaction term cannot be interpret alone, but the p value tells us that interaction term can remain in the model.
+* The odds of illness among those who consumed Nut bar Brand A but did not consume brazil nuts was 50 times higher compared to those who consumed neither Nut bar Brand A nor brazil nuts.
+* The odds of illness among those who consumed brazil nuts but did not consume Nut bar Brand A was 16 times higher compared to those who consumed neither Nut bar Brand A nor brazil nuts.
+* The odds of illness among those consumed Nut bar Brand A and brazil nuts was 42 times (50 x 16.66667 x 0.05 = 41.666675) higher compared to those who consumed neither Nut bar Brand A nor brazil nuts.
+
+```{r q2-step-two2, message=FALSE, warning=FALSE}
+# Use the glht function from the multcomp package to get OR for combination (equivalent to lincom command in Stata)
+names(coef(model7))
+
+comb <- summary(glht(model7,
+                     linct=c("brazil + nut_bar_a + brazil:nut_bar_a = 0")))
+
+exp(confint(comb)$confint)
+
+coef <- exp(model7$coefficients)
+
+# builds a summary table for each of the coefficients 
+data %>% 
+  count(case, brazil, nut_bar_a) %>% 
+  pivot_wider(names_from = case, values_from = n) %>%
+  rename("Cases" = "1", "Controls" = "0") %>% 
+  mutate(OR = case_when(
+         brazil == 0 & nut_bar_a == 0 ~ "Reference",
+         brazil == 1 & nut_bar_a == 0 ~ as.character(round(coef["brazil"], 4)),
+         brazil == 0 & nut_bar_a == 1 ~ as.character(round(coef["nut_bar_a"], 4)),
+         brazil == 1 & nut_bar_a == 1 ~ as.character(round(
+           coef["nut_bar_a"]*coef["brazil"]*coef["brazil:nut_bar_a"], 4))))
+
+```
+
+### Q2:Step 3: Check whether the interaction term improves the fit of the model
+
+```{r q3-step-three, message=FALSE, warning=FALSE}
+# compare the fit of the model with and without the interaction
+model8 <- glm(case ~ brazil + nut_bar_a, data = data, family = binomial(link = "logit"))
+
+lrtest(model7, model8)
+
+```
+
+The LRT tells us that the model with the interaction has a better fit of the data.
+
+### Q2:Step 4: Check whether the model with the interaction is the better model (using AIC)
+
+```{r q2-step-four, message=FALSE, warning=FALSE}
+
+AIC(model7, model8)
+
+```
+
+The model with the lowest AIC is the one that includes the interaction.
+
+## Option: Binomial regression 
+
+### Optional Question 3: If you wanted to use risk ratios, how would you account for the effect of the different exposures?
+
+The scenario presented above was from a case control study. Let's imagine for the proposes of the exercise that it was a cohort study. Logistic regression only provides odds ratios. These can always be reported for a cohort study and they are not wrong ... however, one may want to stick to risk ratios in the multivariable analysis of a cohort study. In this case, logistic regression is not appropriate.
+
+```{r}
+## Proposed steps of analysis
+
+#Step 1: Start with the simplest model with one exposure variable only, add one variable at a time and compare models
+
+#Step 2: Add the interaction and interpret it
+
+```
+
+
+```{r binomial-example, message=FALSE, warning=FALSE, eval=FALSE}
+
+# Start with the simpliest model with only one exposure variable
+model9 <- glm(case ~ nut_bar_a, data = data, family = binomial(link = "log")) #note "log" instead of "logit" for RR
+
+# summarise the outputs from the model (and calculates OR from coefficients)
+tidy(model9, exponentiate = TRUE, conf.int = TRUE) 
+
+# Model with two independent variables
+model10 <- update(model9, formula = case ~ nut_bar_a + nut_bar_b)
+
+tidy(model10, exponentiate = TRUE, conf.int = TRUE) 
+
+#test for the difference in the two models
+lrtest(model9, model10)
+
+#assessing the fit of the model
+AIC(model9, model10)
+
+#check if the interaction improves the model 
+model_int <- glm(case ~ brazil*nut_bar_a, data = data, family = binomial(link = "log"))
+model_noint <- glm(case ~ brazil + nut_bar_a, data = data, family = binomial(link = "logit"))
+
+lrtest(model_int, model_noint)
+AIC(model_int, model_noint)
+
+```
+
+
+
+## Short note on the true outbreak investigations... 
+
+During the analysis, exposures which were statistically significant in the univariate analysis (p<0.001) or had a OR > 20 were considered for inclusion into the multivariable model, using a backwards, stepwise approach. Each variable was considered in term, and its removal tested with a likelihood ratio test to assess whether it improved the fit of the model. Additionally, the ORs of the remaining variables were observed, and if any changed significantly (>50%), then the variable was considered a potential confounder and retained in the model. The multivariable logistic model was considered final when no further variables could be removed. 
+
+The table below contains the result from the final multivariable model (please note, these model results are from the real investigation and not from the altered dataset provided in this case study; as such, there may be discrepancies between the results displayed here and your outputs from the exercise).  
+
+```{r final-lmmodel, message=FALSE, warning=FALSE, echo= FALSE}
+
+data2 <- read_csv("full_salm.csv")
+
+# need to add cubic function of age 
+data2 <- data2 %>% 
+  mutate(age = age...8, case = case...11, gender = gender...133,
+         nut_bar_a = eatnatural, nut_bar_b = lidl_deluxe,
+         age2 = age*age, age3 = age*age*age)
+
+# the the final multivariable logistic regression module (full methods/code available elsewhere)
+model_final <- glm(case ~ age3 + age2 + age + gender + nut_bar_a + nut_bar_b + brazil + cashew + cabbage + carrot, 
+             data = data2, family = binomial(link = "logit"))
+
+# column "estimate" is the aOR and conf.low and conf.high are the upper and lower 95% CIs. 
+# for example, for nut_bar_a: aOR 23.8 (95% CI: 2.46, 395)
+
+```
+
+```{r final-table, message=FALSE, warning=FALSE}
+
+# summarise the outputs from the model 
+tidy(model_final, exponentiate = TRUE, conf.int = TRUE) %>% 
+  gt() %>% 
+  fmt_number(columns = vars(estimate, std.error, statistic, p.value, conf.low, conf.high), decimals = 2) %>% 
+  tab_style(
+    cell_text(color= "red"),
+  locations = cells_body(
+    columns = vars(p.value),
+    rows = p.value < 0.05)
+  )
+
+```
+
+The results can be interpreted as follows: Nut Bar Brand A, Nut Bar Brand B, brazil nuts and cabbage were identified as independent risk factors for infection by multivariable logistic regression. No significant interactions were identified in this original dataset (as such, none were included in the final model).  Despite multiple nuts being statistically significantly associated with infection of the outbreak strain during univariate analysis, only Brazil nuts and two nut bars (and cabbage) remained significant following multivariable analysis - showing the power of multivariable analysis in gaining further insight into the vehicle(s) of infection! 
+
+These results were immediately reported back to the incident management team. On the 6th August, PHE visited the premise of Producer A (which produced both implicated nut bars) focusing on gathering information on the batches of nuts used in nut bars over the period of interest. Samples of brazil nuts were obtained for testing. In total, 119 x25g samples of brazil nuts were tested from 19 consignments of 6 batches. Salmonella was isolated from samples belonging to two batches (5 positive samples from batch one and 1 positive sample from batch two). Whole genome sequencing was conducted on all isolates and samples from batch one were found to genetically identical to the outbreak strain! An additional Salmonella serovar was detected in an isolate from batch two which was found to genetically identical to a strain of Salmonella Anatum that had been isolated from a human isolate in June 2020.
+
+## Conclusion 
+
+As of 20 October 2020, there had been 105 cases identified as part of this outbreak, from England, Wales, Northern Ireland and Scotland. Additionally, 19 cases had been identified outside of the UK in France, Luxembourg, Netherlands and Canada. The UK's case-control study, combined with case interviews in the UK, France and Luxembourg indicated Brazil nuts and nut bars as likely vehicles of infection. 
+
+One batch of Brazil nuts from Bolivia, sampled at the Producer A's premise, tested positive for _S._ Typhimurium matching the outbreak strain. These Brazil nuts were used for the production of certain batches of Brand A and Brand B nut products (nut bars and other products such as cereals containing nuts). The Brazil nuts were also used in other nut products manufacturers by different companies in the UK and one in Austria. It is likely that the vehicle of infection was contaminated Brazil nuts, however the true root cause of how the contamination of the brazil nuts occurred was not possible with the data that was available.
+ 
+Extensive recalls and withdrawals of nut products were implemented from August 2020. As of October 2020, the outbreak appeared to be controlled, with the low likelihood of further cases occurring (with the rsik still present due to the long shelf life of many of the nut products).
+
+
+## Further information and reading 
+
+A rapid outbreak assessment was published by ECDC in October 2020, which can be found at: https://www.ecdc.europa.eu/en/publications-data/salmonella-typhimurium-multi-country-outbreak-brazil-nuts 
+
+Full details on the outbreak investigation will be made available shortly in a peer-review publication. 

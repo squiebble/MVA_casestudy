@@ -1,0 +1,258 @@
+---
+title: "_Salmonella_ outbreak case study (Part 1: Univariate and stratified analysis): R guide"
+author: "Authors: Ranya Mulchandani and Alicia Barrasa Blanco (UK-FETP)"
+date: "April 2021"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+## An outbreak of _Salmonella_ Typhimurium in the UK
+
+This case study describes the investigation of an outbreak of _Salmonella_ Typhimurium in the UK which was identified through the analysis of whole genome sequencing in 2020. As part of the larger outbreak, a case-control was conducted to identify potential vehicle(s) of infection.
+
+The information presented in this case study and the associated data files have been deliberately changed to facilitate the acquisition of the learning objectives.
+
+This Rmd accompanies the full pre-course exercise word document and provides R help/hints for **Part one section 2** only.
+
+### Learning outcomes 
+
+The key learning outcomes for this exercise are:
+
+* Conduct descriptive and univariate analysis in a foodborne outbreak;
+* Conduct stratified analysis to check for potential confounders/effect modifiers. 
+
+### Pre-requisites
+
+The expectation of participants using this R guide is a basic understanding of R. These include:
+
+* setting working directory
+* installing and loading packages
+* reading in a dataset
+* browsing your dataset
+* basic data management and analysis
+* familiarity with tidyverse packages
+
+### This guide uses the "tidyverse way"
+
+This guide primarily uses code from the tidyverse packages (dplyr, ggplot2, readr) rather than base R. A quick reminder of the main verbs used in the dplyr package:
+
+* select() select variables by name
+* filter() return rows with matching conditions
+* mutate() add new variables
+* summarise() reduce multiple values down to a single value
+* group_by() group by one or more variables
+
+## Setting up R Studio - installing and loading packages
+
+The following code chunk will outline which packages will be used in this case study. 
+
+As always, there are multiple packages available that can do the same/similar analysis - the packages chosen in this case study are those familiar to the authors but are just one of multiple options available. When working through this case study, if you have alternative and/or easier approaches to conduct the same analysis, then please feel free to contribute to the continual improvement of this case study code by contacting one of the contributers listed above. 
+
+```{r one, message=FALSE, warning=FALSE, echo= FALSE}
+
+# set working directory 
+setwd("T:/FES/FS Information Team/Core Services/Outbreaks & Incidents/2020/202005 Salmonella T5.6145/Case study") 
+
+```
+
+```{r setup, message=FALSE, warning=FALSE}
+
+# load packages
+
+library(dplyr) # data manipulation
+library(readr) # read_csv function
+library(Hmisc) # describing data
+library(ggplot2) # graphically displaying data
+library(statar) # basic tabulations 
+library(EpiFunc) # basic tabulations, epicurves and age-sex pyramids 
+library(EpiStats) # univariate analysis
+library(broom) # tidy function for model outputs
+library(epiDisplay) # for stratified analysis
+library(magrittr) # for the %$% operator
+
+# Alternatively you can load the required packages using the following code:
+
+# required_packages <- c("dplyr", "readr", "Hmisc", "ggplot2", "statar", "EpiFunc", "EpiStats", "broom", "epiDisplay")
+
+# for (i in seq(along = required_packages))
+#  library(required_packages[i], character.only = TRUE)
+
+# If you do not have any of the packages listed above, first use install.packages(), 
+# followed by a return to library(). All packages should be available via CRAN. 
+# The only exception to this is the EpiFunc package (written by former-FETP Daniel Gardiner).
+# To download the EpiFunc package, use the following code:
+
+# install.packages("httr")
+# httr::set_config(httr::config(ssl_verifypeer =0L))
+# devtools::install_github("DanielGardiner/EpiFunc")
+
+# read in dataset 
+data <- read_csv("salm_v1.4.csv")
+```
+
+# Descriptive and univariate analysis
+
+## Help Question 5: What are the main characteristics of the study population?
+
+## Understanding your data
+
+This section will focus on exploring your dataset - looking at the overall structure, the key variables it contains, the variable types, number of observations, any missing values etc. 
+
+```{r explore, message=FALSE}
+
+# Explore the variables included in the dataset 
+
+names(data) # provides list of variable names
+
+glimpse(data) # view structure of your dataset 
+
+# provides preview of first 6 rows of dataset
+# head(data) 
+
+# provides no. of observations, missing values
+# Hmisc::describe(data) 
+
+# how many cases and controls are in the dataset
+data %>% 
+  group_by(case) %>% 
+  summarise(n = n())
+
+```
+
+## Managing your data
+
+This section will focus on creating new variables required for the analysis - primarily a variable for age group, to allow for age-sex pyramids
+
+```{r cleaning, message=FALSE}
+
+# Create age_group variable (useful when creating age/sex pyramids using EpiFunc)
+data <- data %>% 
+  mutate(agegrp = cut(age, breaks=c(0,35,45,55,65,Inf)))
+
+data <- data.frame(data) 
+
+```
+
+## Describing your data
+
+This section will focus on summarising key aspects of your dataset - for example looking at demographics
+
+```{r demog, message=FALSE, warning=FALSE}
+
+# Summarise age in cases and controls
+data %>% 
+  group_by(case) %>% 
+  filter(!is.na(age)) %>% #alternatively you could use the na.rm argument 
+  summarise(n = n(), 
+            median = median(age), mean = mean(age), 
+            min = min(age), max = max(age)) %>% 
+  ungroup() # good practice to ungroup your data 
+
+# explore gender (StataR package) 
+data %>% tab(gender) 
+
+# try stratifying by case status 
+data %>% tab(case, gender) # you can see this package isn't so great for 2by2 tables 
+
+# let's use EpiDisplay package instead - gives a nicer 2by2 table, and ORs! 
+
+# to get percentages
+data %$% tabpct(case, gender, graph = F) # don't worry about this slightly different pipe (magrittr package)
+
+# to get ORs
+data %$% cc(case, gender, graph = F) 
+
+# age-sex pyramid, split by whether case or control (EpiFunc package)
+EpiFunc::age_sex_pyramid(data %>% 
+                           mutate(gender2 = if_else(gender == 0, "Female", "Male")), 
+                         age.grp.col = "agegrp", sex.col = "gender2", split.by = "case")
+
+# alternatively you can create age-sex pyamids directly using ggplot2 
+
+# ggplot(data, aes(x=agegrp, fill=gender2)) +
+#   geom_bar(data=subset(data, gender2=="Female"), 
+#            color="white", width=1) +
+#   geom_bar(data=subset(data, gender2=="Male"), 
+#            aes(y=..count..*(-1)), 
+#            color="white", width=1) +
+#   theme_minimal() +
+#   xlab("Age group") +
+#   scale_y_continuous(breaks=seq(-20,20,1),
+#                      labels=abs(seq(-20,20,1))) +
+#   scale_x_discrete(limits=levels(data$agegrp)) +
+#   geom_hline(yintercept=0) +
+#   coord_flip() +
+#   theme(panel.grid.minor=element_blank(), panel.grid.major=element_blank(), legend.title=element_blank())
+
+```
+
+## Help Question 6: What are the food-specific attack rates for the food group variables? What is the appropriate measure of association in this study?
+
+## Exploring food-specific attack rates for food groups 
+
+This section will look at the attack rates and odd ratios for the food group exposure variables.
+
+```{r attackrate_grp, message=FALSE, warning=FALSE}
+
+# 2by2 table e.g. for takeaway by case status (EpiDisplay package)
+data %$% cc(case, grp_takeaway, graph = F) 
+
+# Univariable analysis (EpiStats package)
+EpiStats::CCTable(data, "case", 
+                  exposure = c("grp_takeaway", "grp_chicken", "grp_nutseed", "grp_vegetables",
+                               "grp_fruit", "grp_cereal", "grp_meatfish"), exact=TRUE) %>% 
+#note - do not include kable() when running directly in console (for Rmd visualisation purposes)
+  knitr::kable() 
+
+# by default the variables have been ordered by p-value
+
+```
+
+## Help Question 7: What would your next steps of analysis be?
+
+## Exploring food-specific attack rates for individual food items
+
+This section will look at the attack rates and odds ratios of the individual food item exposure variables.
+
+```{r attackrate_ind, message=FALSE, warning=FALSE}
+
+EpiStats::CCTable(data, "case", 
+                  exposure = c("frozenchick", "filletchick", "cabbage", "carrot",
+                               "macadamia", "brazil",
+                               "hazelnut", "cashew", "pecan", "peanut",
+                               "pistachio", "nut_bar_a", "nut_bar_b"), exact=TRUE) %>% 
+ #note - do not include kable() when running directly in console (for Rmd visualisation purposes)
+  knitr::kable()
+
+```
+
+## Help Question 8: What is your interpretation of finding from the univariate analysis?
+
+--
+
+## Help Question 9: How would you further assess potential vehicle(s) of infection?
+
+## Statified analysis 
+
+This section will look at statified analysis of Nut Bar A by other food items
+
+```{r stratified, message=FALSE, warning=FALSE}
+
+# stratified analysis (EpiDisplay package) 
+
+# stratify by cabbage 
+epiDisplay::mhor(data$case, data$cabbage, data$nut_bar_a, graph = F) # results indicate potential confounder
+
+# stratify by cashews 
+epiDisplay::mhor(data$case, data$cashew, data$nut_bar_a, graph = F) # nothing
+
+# stratify by brazil nuts 
+epiDisplay::mhor(data$case, data$brazil, data$nut_bar_a, graph = F) # results indicate potential effect modifier
+
+# now do the same for the rest of the variables...
+
+```
+
+Results from univariate and stratified analysis will be reviewed in the MVA module (in part two of this case study).....
