@@ -81,7 +81,7 @@ data <- data %>%
 
 ## Reminder from part one of the case study....
 
-Univariate analysis results suggest that several food items were associated with illness, with consumption of Nut bar Brand A showing the strongest association. The associations could be real (e.g. multuple items being contaminated) or due to another variable that acts as a confounding factor. 
+Univariate analysis results suggest that several food items were associated with illness, with consumption of Nut bar Brand A showing the strongest association. The associations could be real (e.g. multiple items being contaminated) or due to another variable that acts as a confounding factor. 
 
 Stratified analysis showed that Nut bar Brand A was confounding the effect of other food items, including chicken, cabbage, peanuts, hazelnuts, Nut bar Brand B, pecans and pistachios. In addition, there appears to be potential effect modifications between consumption of brazil nuts and Nut bar Brand A.
 
@@ -94,7 +94,7 @@ Interpretation of the results should be done with caution due to the small numbe
 ```{r question-one-analysis-plan, message=FALSE}
 # Proposed steps of analysis 
 
-#Step 1: Start by performing a logistic regrssion analysis with only one dichotomous exposure variable (ie. exposure = nut_bar_a, outcome = case), interpret the results and calculate the odds.
+#Step 1: Start by performing a logistic regression analysis with only one dichotomous exposure variable (ie. exposure = nut_bar_a, outcome = case), interpret the results and calculate the odds.
 
 #Step 2: Compare the outcome of the logistic regression when using age as a categorical variable or as a continuous one and interpret the outcomes 
 
@@ -131,11 +131,11 @@ This model corresponds to the equation:
 
 The (Intercept) in the regression output corresponds to exponentiated log odds in the unexposed, which in cohort studies can be interpreted as the odds of being a case among the unexposed; in case control studies the interpretation is meaningless. Note that even if this (Intercept) is shown in the OR column, it is not an OR. This odds needs to be multiplied with the correct odds ratios for each exposure group to produce the odds of being a case for each exposure combination.
 
-The OR=19.98 corresponds to exponentiated log of the OR for the exposure in the equation above: The odds of being a case among those that consumed Nut bar A is almost 20 times higher (95% CI: 6.03-79.9) that among those that didn't.
+The OR=20.0 corresponds to exponentiated log of the OR for the exposure in the equation above: The odds of being a case among those that consumed Nut bar A is almost 20 times higher (95% CI: 6.03-79.9) that among those that didn't.
 
 ### Q1:Step 2: Logistic regression with age
 
-Now we want to run the model using age firstly as a categorical variable and then as a continous variable. The lowest value of agegrp is automatically set as a reference category.
+Now we want to run the model using age firstly as a categorical variable and then as a continuous variable. The lowest value of agegrp is automatically set as a reference category.
 
 ```{r step-two1, message=FALSE}
 # run model using age as categorical variable
@@ -153,7 +153,7 @@ tidy(model2, exponentiate = TRUE, conf.int = TRUE) # summarise the outputs from 
 
 ```
 
-Though age does not appear to be associated with the outcome, the coefficient 1.033 represents the increase in the OR with one unit increase in age. What would be the OR for a 10-unit increase in age?
+Though age does not appear to be associated with the outcome, the coefficient 1.02 represents the increase in the OR with one unit increase in age. What would be the OR for a 10-unit increase in age?
 
 ### Q1:Step 3: Adding a second variable to the model
 
@@ -169,6 +169,7 @@ tidy(model3, exponentiate = TRUE, conf.int = TRUE)
 ```
 
 ![](Capture3.JPG)
+
 
 (Intercept) is the odds of illness among the unexposed i.e. among those who consumed neither Nut bar Brand A or Nut bar Brand B. 
 
@@ -191,7 +192,7 @@ Think about how you would interpret the coefficients from this model.
 
 ### Q1:Step 5: Adding a variables in a step-by-step fashion (using LRT to compare different models)
 
-Variables to be included in a multivariable regression model are selected on the basis of the results of the crude analysis and stratified analyses. Variables showing an association with the outcome and having a p-value less than 0.2 are often considered eligible.. The cut-off should be chosen depending on the specific situation (it should be pre-defined in your analysis protocol before you start the analysis). . Often it is between 0.25 and 0.1 but higher p-values can sometimes be justified. However, if you have any reason to believe a specific variable (exposure) should be in the model (i.e. because it might be a confounder or is a primary hypothesis), you should include it in the model anyway. There is no golden rule in the final inclusion of variables in a multivariable analysis model, especially in outbreak investigations.
+Variables to be included in a multivariable regression model are selected on the basis of the results of the crude analysis and stratified analyses. Variables showing an association with the outcome and having a p-value less than 0.2 are often considered eligible. The cut-off should be chosen depending on the specific situation (it should be pre-defined in your analysis protocol before you start the analysis). Often it is between 0.25 and 0.1 but higher p-values can sometimes be justified. However, if you have any reason to believe a specific variable (exposure) should be in the model (i.e. because it might be a confounder or is a primary hypothesis), you should include it in the model anyway. There is no golden rule in the final inclusion of variables in a multivariable analysis model, especially in outbreak investigations.
 
 To be able to statistically check if the inclusion of a variable improves the model, the models need to have the same number of observations. If any variable had missing values this means that these will have different number of observations, so you need to drop all the missings.
 
@@ -278,16 +279,19 @@ tidy(model7, exponentiate = TRUE, conf.int = TRUE)
 * The coefficient that accompanies the interaction term cannot be interpret alone, but the p value tells us that interaction term can remain in the model.
 * The odds of illness among those who consumed Nut bar Brand A but did not consume brazil nuts was 50 times higher compared to those who consumed neither Nut bar Brand A nor brazil nuts.
 * The odds of illness among those who consumed brazil nuts but did not consume Nut bar Brand A was 16 times higher compared to those who consumed neither Nut bar Brand A nor brazil nuts.
-* The odds of illness among those consumed Nut bar Brand A and brazil nuts was 42 times (50 x 16.66667 x 0.05 = 41.666675) higher compared to those who consumed neither Nut bar Brand A nor brazil nuts.
+* The odds of illness among those consumed Nut bar Brand A and brazil nuts was 42 times (50 x 16.66667 x 0.05 = 41.666675) higher compared to those who consumed neither Nut bar Brand A nor brazil nuts. 
+
+Now let's see how you can calculate this combined OR using code:
 
 ```{r q2-step-two2, message=FALSE, warning=FALSE}
 # Use the glht function from the multcomp package to get OR for combination (equivalent to lincom command in Stata)
-names(coef(model7))
+
+# names(coef(model7))
 
 comb <- summary(glht(model7,
                      linct=c("brazil + nut_bar_a + brazil:nut_bar_a = 0")))
 
-exp(confint(comb)$confint)
+# exp(confint(comb)$confint)
 
 coef <- exp(model7$coefficients)
 
@@ -315,7 +319,7 @@ lrtest(model7, model8)
 
 ```
 
-The LRT tells us that the model with the interaction has a better fit of the data.
+The LRT tells us that the model with the interaction has a better fit of the data (p-value = 0.03).
 
 ### Q2:Step 4: Check whether the model with the interaction is the better model (using AIC)
 
@@ -379,43 +383,11 @@ During the analysis, exposures which were statistically significant in the univa
 
 The table below contains the result from the final multivariable model (please note, these model results are from the real investigation and not from the altered dataset provided in this case study; as such, there may be discrepancies between the results displayed here and your outputs from the exercise).  
 
-```{r final-lmmodel, message=FALSE, warning=FALSE, echo= FALSE}
-
-data2 <- read_csv("full_salm.csv")
-
-# need to add cubic function of age 
-data2 <- data2 %>% 
-  mutate(age = age...8, case = case...11, gender = gender...133,
-         nut_bar_a = eatnatural, nut_bar_b = lidl_deluxe,
-         age2 = age*age, age3 = age*age*age)
-
-# the the final multivariable logistic regression module (full methods/code available elsewhere)
-model_final <- glm(case ~ age3 + age2 + age + gender + nut_bar_a + nut_bar_b + brazil + cashew + cabbage + carrot, 
-             data = data2, family = binomial(link = "logit"))
-
-# column "estimate" is the aOR and conf.low and conf.high are the upper and lower 95% CIs. 
-# for example, for nut_bar_a: aOR 23.8 (95% CI: 2.46, 395)
-
-```
-
-```{r final-table, message=FALSE, warning=FALSE}
-
-# summarise the outputs from the model 
-tidy(model_final, exponentiate = TRUE, conf.int = TRUE) %>% 
-  gt() %>% 
-  fmt_number(columns = vars(estimate, std.error, statistic, p.value, conf.low, conf.high), decimals = 2) %>% 
-  tab_style(
-    cell_text(color= "red"),
-  locations = cells_body(
-    columns = vars(p.value),
-    rows = p.value < 0.05)
-  )
-
-```
+![](Capture4.JPG)
 
 The results can be interpreted as follows: Nut Bar Brand A, Nut Bar Brand B, brazil nuts and cabbage were identified as independent risk factors for infection by multivariable logistic regression. No significant interactions were identified in this original dataset (as such, none were included in the final model).  Despite multiple nuts being statistically significantly associated with infection of the outbreak strain during univariate analysis, only Brazil nuts and two nut bars (and cabbage) remained significant following multivariable analysis - showing the power of multivariable analysis in gaining further insight into the vehicle(s) of infection! 
 
-These results were immediately reported back to the incident management team. On the 6th August, PHE visited the premise of Producer A (which produced both implicated nut bars) focusing on gathering information on the batches of nuts used in nut bars over the period of interest. Samples of brazil nuts were obtained for testing. In total, 119 x25g samples of brazil nuts were tested from 19 consignments of 6 batches. Salmonella was isolated from samples belonging to two batches (5 positive samples from batch one and 1 positive sample from batch two). Whole genome sequencing was conducted on all isolates and samples from batch one were found to genetically identical to the outbreak strain! An additional Salmonella serovar was detected in an isolate from batch two which was found to genetically identical to a strain of Salmonella Anatum that had been isolated from a human isolate in June 2020.
+These results were immediately reported back to the incident management team. On the 6th August, PHE visited the premise of Producer A (which produced both implicated nut bars) focusing on gathering information on the batches of nuts used in nut bars over the period of interest. Samples of brazil nuts were obtained for testing. In total, 119 x25g samples of brazil nuts were tested from 19 consignments of 6 batches. Salmonella was isolated from samples belonging to two batches (5 positive samples from batch one and 1 positive sample from batch two). Whole genome sequencing was conducted on all isolates and samples from batch one were found to genetically identical to the outbreak strain! An additional Salmonella serovar was detected in an isolate from batch two which was found to genetically identical to a strain of Salmonella Anatum that had been isolated from two human cases (both of whom reported consumption of a brazil nut containing product!).
 
 ## Conclusion 
 
@@ -423,7 +395,7 @@ As of 20 October 2020, there had been 105 cases identified as part of this outbr
 
 One batch of Brazil nuts from Bolivia, sampled at the Producer A's premise, tested positive for _S._ Typhimurium matching the outbreak strain. These Brazil nuts were used for the production of certain batches of Brand A and Brand B nut products (nut bars and other products such as cereals containing nuts). The Brazil nuts were also used in other nut products manufacturers by different companies in the UK and one in Austria. It is likely that the vehicle of infection was contaminated Brazil nuts, however the true root cause of how the contamination of the brazil nuts occurred was not possible with the data that was available.
  
-Extensive recalls and withdrawals of nut products were implemented from August 2020. As of October 2020, the outbreak appeared to be controlled, with the low likelihood of further cases occurring (with the rsik still present due to the long shelf life of many of the nut products).
+Extensive recalls and withdrawals of nut products were implemented from August 2020. As of October 2020, the outbreak appeared to be controlled, with the low likelihood of further cases occurring (with the risk still present due to the long shelf life of many of the nut products).
 
 
 ## Further information and reading 
