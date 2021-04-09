@@ -9,16 +9,3 @@ The associated Rmd file (Salmonella_Part1_Rhelp.Rmd) summarises some useful comm
 The associated Rmd file (Salmonella_Part2_Rguide.Rmd) summarises how to conduct multivariable logistic regression in R. 
 
 The dataset has been deliberately changed from the original dataset to faciltate acquisition of the learning objectives.
-
-This case study utilises the following packages:
-
-library(dplyr) # data manipulation
-library(readr) # read_csv function
-library(Hmisc) # describing data
-library(ggplot2) # graphically displaying data
-library(statar) # basic tabulations 
-library(EpiFunc) # basic tabulations, epicurves and age-sex pyramids 
-library(EpiStats) # univariate analysis
-library(broom) # tidy function for model outputs
-library(epiDisplay) # for stratified analysis
-library(magrittr) # for the %$% operator
