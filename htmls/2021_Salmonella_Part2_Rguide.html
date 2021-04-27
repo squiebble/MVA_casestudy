@@ -603,7 +603,7 @@ lrtest(model7, model8)</code></pre>
 
 #Step 2: Add the interaction and interpret it</code></pre>
 <pre class="r"><code># Start with the simpliest model with only one exposure variable
-model9 &lt;- glm(case ~ nut_bar_a, data = data, family = binomial(link = &quot;log&quot;)) #note &quot;log&quot; instead of &quot;logit&quot; for RR
+model9 &lt;- glm(case ~ nut_bar_a, data = data, family = binomial(link = &quot;logit&quot;)) #note &quot;log&quot; instead of &quot;logit&quot; for RR
 
 # summarise the outputs from the model (and calculates OR from coefficients)
 tidy(model9, exponentiate = TRUE, conf.int = TRUE) 
@@ -620,7 +620,7 @@ lrtest(model9, model10)
 AIC(model9, model10)
 
 #check if the interaction improves the model 
-model_int &lt;- glm(case ~ brazil*nut_bar_a, data = data, family = binomial(link = &quot;log&quot;))
+model_int &lt;- glm(case ~ brazil*nut_bar_a, data = data, family = binomial(link = &quot;logit&quot;))
 model_noint &lt;- glm(case ~ brazil + nut_bar_a, data = data, family = binomial(link = &quot;logit&quot;))
 
 lrtest(model_int, model_noint)
