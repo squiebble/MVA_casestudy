@@ -350,7 +350,7 @@ The scenario presented above was from a case control study. Let's imagine for th
 ```{r binomial-example, message=FALSE, warning=FALSE, eval=FALSE}
 
 # Start with the simpliest model with only one exposure variable
-model9 <- glm(case ~ nut_bar_a, data = data, family = binomial(link = "log")) #note "log" instead of "logit" for RR
+model9 <- glm(case ~ nut_bar_a, data = data, family = binomial(link = "logit")) #note "log" instead of "logit" for RR
 
 # summarise the outputs from the model (and calculates OR from coefficients)
 tidy(model9, exponentiate = TRUE, conf.int = TRUE) 
@@ -367,7 +367,7 @@ lrtest(model9, model10)
 AIC(model9, model10)
 
 #check if the interaction improves the model 
-model_int <- glm(case ~ brazil*nut_bar_a, data = data, family = binomial(link = "log"))
+model_int <- glm(case ~ brazil*nut_bar_a, data = data, family = binomial(link = "logit"))
 model_noint <- glm(case ~ brazil + nut_bar_a, data = data, family = binomial(link = "logit"))
 
 lrtest(model_int, model_noint)
